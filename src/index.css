@@ -1,0 +1,371 @@
+@import "tailwindcss";
+
+/* ── Design tokens ──────────────────────────────────────────────────────── */
+
+@theme {
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+
+  /* Surfaces */
+  --color-ink: #0d0d0f; /* page background */
+  --color-card: #18181b; /* countdown cards and the dialog */
+  --color-card-hover: #1c1c20;
+  --color-well: #111113; /* inset fields sitting on a card surface */
+
+  /* Text */
+  --color-muted: #a1a1aa; /* secondary text */
+  --color-faint: #8a8a93; /* tertiary text; still AA on every surface */
+  --color-dim: #71717a; /* large display text only */
+
+  /* Accent: one electric blue, used for action and "now" */
+  --color-accent: #3f5fe8; /* fills behind white text */
+  --color-accent-hover: #4969f2;
+  --color-accent-press: #3654d6;
+  --color-accent-soft: #7b93ff; /* accent as text or line on dark surfaces */
+
+  --color-danger: #f87171;
+
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── Base ───────────────────────────────────────────────────────────────── */
+
+@layer base {
+  html {
+    background-color: var(--color-ink);
+    color-scheme: dark;
+    scrollbar-gutter: stable;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Lock the page behind an open dialog. */
+  html:has(dialog[open]) {
+    overflow: hidden;
+  }
+
+  body {
+    min-height: 100dvh;
+    background-color: var(--color-ink);
+    color: #fff;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: default;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent-soft);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: rgb(63 95 232 / 0.55);
+    color: #fff;
+  }
+}
+
+/* ── Components ─────────────────────────────────────────────────────────── */
+
+@layer components {
+  /* ── Countdown card ───────────────────────────────────────────────────── */
+
+  /*
+   * Each grid cell is a size container. The card inside is laid out from the
+   * width it actually receives, whichever combination of screen and chosen
+   * layout produced it: about 100px for three-up on a phone, over 1000px for
+   * one-up on a desktop. Nothing in the card looks at the viewport.
+   */
+  .card-cell {
+    container: card / inline-size;
+  }
+
+  /*
+   * Card metrics. Each grows with the card (cqi = 1% of its width) between a
+   * floor that keeps small cards legible and a ceiling that is the original
+   * full-size design, so cards of roughly 290px and up look exactly as before.
+   */
+  .countdown-card {
+    --pad-x: clamp(0.5rem, 9cqi, 1.5rem);
+    --pad-top: clamp(1.75rem, 15cqi, 2.5rem);
+    --pad-bottom: clamp(0.75rem, 10cqi, 1.75rem);
+    /* Tallest the figure may be. 46% of the width is what three digits fill,
+       so one, two and three digit counts all come out the same size. */
+    --hero-max: clamp(2.75rem, 46cqi, 7.5rem);
+    /* Minimum breathing room between the label and the occasion name. */
+    --rest: clamp(0.625rem, 9cqi, 1.5rem);
+    --label-size: clamp(0.5625rem, 5.6cqi, 0.6875rem);
+    --label-tracking: 0.22em;
+    --name-size: clamp(0.6875rem, 7.4cqi, 0.9375rem);
+    --name-tracking: 0.08em;
+    --date-size: clamp(0.625rem, 6.6cqi, 0.8125rem);
+    --action-inset: clamp(0.25rem, 3.5cqi, 0.625rem);
+
+    min-height: 18rem;
+    padding: var(--pad-top) var(--pad-x) var(--pad-bottom);
+    border-radius: clamp(1rem, 12cqi, 1.5rem);
+  }
+
+  @media (min-width: 40rem) {
+    .countdown-card {
+      min-height: 20rem;
+    }
+  }
+
+  /* Fixed-height stage: figures of any size share one baseline, so the
+     labels line up across a row. */
+  .card-stage {
+    height: var(--hero-max);
+  }
+
+  /*
+   * The dominant figure. It grows to the cap, then scales with the space
+   * inside the card and its own character count, so "7" and "1250" both fit
+   * on one line without clipping.
+   */
+  .hero-figure {
+    --figure-cap: var(--hero-max);
+    font-size: min(
+      var(--figure-cap),
+      calc((100cqi - 2 * var(--pad-x)) / (var(--chars, 3) * var(--char-width, 0.6)))
+    );
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.05em;
+    /* Tracking trails the last glyph; give it back so the ink stays centred. */
+    margin-right: 0.05em;
+    /*
+     * Smaller figures have a smaller descent, which would drop them closer to
+     * the label. Lift each one so it shares the baseline of a full-height
+     * numeral (0.15em sits below the baseline at line-height 1).
+     */
+    margin-bottom: calc(0.15 * (var(--hero-max) - 1em));
+    white-space: nowrap;
+    font-variant-numeric: lining-nums;
+  }
+
+  /* "TODAY!" and "PASSED": wider glyphs, so a lower cap. */
+  .hero-figure[data-word] {
+    --figure-cap: calc(var(--hero-max) * 0.5667);
+    --char-width: 0.65;
+    letter-spacing: -0.035em;
+    margin-right: 0.035em;
+  }
+
+  .card-label {
+    margin-top: 0.125rem;
+    /* Balance the trailing letter-space so the text stays optically centred. */
+    padding-left: var(--label-tracking);
+    font-size: var(--label-size);
+    letter-spacing: var(--label-tracking);
+    /* A long label on a very small card breaks into two even lines. */
+    text-wrap: balance;
+  }
+
+  .card-foot {
+    width: 100%;
+    margin-top: auto;
+    padding-top: var(--rest);
+  }
+
+  .card-name {
+    font-size: var(--name-size);
+    letter-spacing: var(--name-tracking);
+  }
+
+  .card-date {
+    margin-top: clamp(0.125rem, 2.4cqi, 0.375rem);
+    font-size: var(--date-size);
+  }
+
+  .card-date-short {
+    display: none;
+  }
+
+  .card-actions {
+    position: absolute;
+    top: var(--action-inset);
+    right: var(--action-inset);
+    transition: opacity 200ms ease;
+  }
+
+  .card-actions-full {
+    display: flex;
+    gap: 0.125rem;
+  }
+
+  .card-actions-compact {
+    display: none;
+  }
+
+  /*
+   * Compact (under 208px): two-up on phones, four-up on small tablets.
+   * Two icon buttons no longer fit beside the figure, so a single "more"
+   * button takes their place. Height follows width to keep the proportions.
+   */
+  @container card (width < 13rem) {
+    .countdown-card {
+      --label-tracking: 0.16em;
+      --name-tracking: 0.05em;
+      min-height: 128cqi;
+    }
+
+    .card-actions-full {
+      display: none;
+    }
+
+    .card-actions-compact {
+      display: block;
+    }
+  }
+
+  /* Mini (under 136px): three-up on phones. The month is abbreviated so the
+     date still fits on one line at a readable size. */
+  @container card (width < 8.5rem) {
+    .countdown-card {
+      --label-tracking: 0.12em;
+      --name-tracking: 0.03em;
+      min-height: 152cqi;
+    }
+
+    .card-date-long {
+      display: none;
+    }
+
+    .card-date-short {
+      display: inline;
+    }
+  }
+
+  /* Large (416px and up): one-up or two-up on tablets and desktops. The
+     figure keeps growing so it still dominates a much bigger card. */
+  @container card (width >= 26rem) {
+    .countdown-card {
+      --pad-x: 2rem;
+      --pad-top: 3rem;
+      --pad-bottom: 2.25rem;
+      --hero-max: clamp(7.5rem, 28cqi, 11rem);
+      --rest: 2rem;
+      --label-size: 0.75rem;
+      --name-size: 1.0625rem;
+      --date-size: 0.875rem;
+      min-height: 22rem;
+    }
+  }
+
+  /* Browsers without container queries get the original fixed design. */
+  @supports not (width: 1cqi) {
+    .countdown-card {
+      --pad-x: 1.5rem;
+      --pad-top: 2.25rem;
+      --pad-bottom: 1.75rem;
+      --hero-max: 6rem;
+      --rest: 1.5rem;
+      --label-size: 0.6875rem;
+      --name-size: 0.9375rem;
+      --date-size: 0.8125rem;
+      --action-inset: 0.625rem;
+      border-radius: 1.5rem;
+    }
+
+    .hero-figure {
+      font-size: 5.5rem;
+    }
+
+    .hero-figure[data-word] {
+      font-size: 2.75rem;
+    }
+
+    .card-date {
+      margin-top: 0.375rem;
+    }
+  }
+
+  /*
+   * Actions stay visible on touch screens, where there is no hover. With a
+   * mouse they stay out of the way until the card is hovered or something
+   * inside it has keyboard focus.
+   */
+  @media (hover: hover) and (pointer: fine) {
+    .card-actions {
+      opacity: 0;
+    }
+
+    .countdown-card:hover .card-actions,
+    .countdown-card:focus-within .card-actions {
+      opacity: 1;
+    }
+  }
+
+  /* A just-added or just-edited card briefly wears the accent so the eye can find it. */
+  .countdown-card[data-fresh] {
+    animation: card-fresh 1.8s ease-out;
+  }
+
+  .card-enter {
+    animation: rise-in 320ms var(--ease-out-quint) both;
+  }
+
+  /* ── Overlays ─────────────────────────────────────────────────────────── */
+
+  .toast {
+    animation: rise-in 240ms var(--ease-out-quint) both;
+  }
+
+  dialog.sheet[open] {
+    animation: sheet-in 240ms var(--ease-out-quint) both;
+  }
+
+  dialog.sheet::backdrop {
+    background-color: rgb(5 5 7 / 0.72);
+    backdrop-filter: blur(6px);
+    animation: fade-in 200ms ease-out both;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes card-fresh {
+  from,
+  35% {
+    border-color: var(--color-accent-soft);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after,
+  ::backdrop {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
